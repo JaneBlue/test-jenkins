@@ -1,5 +1,9 @@
 pipeline {
   agent any
+  environment {
+    HELM_USERNAME = credentials('HELM_USERNAME')
+    HELM_PASSWORD = credentials('HELM_PASSWORD')
+  }
   stages {
     stage('test') {
       steps {
@@ -12,6 +16,27 @@ pipeline {
             //修改为自己的镜像
             sh 'docker push registry.cn-hangzhou.aliyuncs.com/k8s-mirrors/kube-app:$BUILD_NUMBER'
         }
+    }
+}
+    stage('push chart') {
+    steps {
+        script {
+            def filename = 'helm/kube-app/values.yaml'
+            def data = readYaml file: filename
+            data.image.tag = env.BUILD_NUMBER
+            sh "rm $filename"
+            writeYaml file: filename, data: data
+        }
+
+        script {
+            def filename = 'helm/kube-app/Chart.yaml'
+            def data = readYaml file: filename
+            data.version = env.BUILD_NUMBER
+            sh "rm $filename"
+            writeYaml file: filename, data: data
+        }
+
+        sh 'helm push helm/kube-app https://repomanage.rdc.aliyun.com/helm_repositories/1148-test --username=$HELM_USERNAME --password=$HELM_PASSWORD  --version=$BUILD_NUMBER'
     }
 }
   }
